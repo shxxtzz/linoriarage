@@ -166,6 +166,11 @@ function ESP.new()
             return
         end
 
+        -- Cache viewport size once per frame
+        local vpW, vpH = cam.ViewportSize.X, cam.ViewportSize.Y
+        local camPos = cam.CFrame.Position
+        local camLook = cam.CFrame.LookVector
+
         for _, player in ipairs(allPlayers) do
             if player == LocalPlayer then continue end
             local st = self.states[player]
@@ -173,13 +178,19 @@ function ESP.new()
             local character = player.Character
             local hum = character and character:FindFirstChild("Humanoid")
             local hrp = character and character:FindFirstChild("HumanoidRootPart")
-            local ally = character and character:FindFirstChild("_is_ally")
+            local ally = nil
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p.Character == character then
+                    ally = p.Team ~= nil and p.Team ~= Enum.Team.Neutral
+                    break
+                end
+            end
             if not character or not hum or hum.Health <= 0 or not hrp
                 or (ally and ally.Value) then
                 hide(st); continue
             end
 
-            -- snapshot part positions ONCE per frame
+            -- Single sample: snapshot part positions ONCE per frame
             local pos = {}
             for _, pn in ipairs(SKEL_PARTS) do
                 local part = character:FindFirstChild(pn)
@@ -190,11 +201,13 @@ function ESP.new()
             local headP = head and head.Position or (pos.Head or hrp.Position)
             local feetP = hrp.Position - Vector3.new(0, 3, 0)
 
+            -- Pre-compute screen positions ONCE
             local headScr, headOn = cam:WorldToViewportPoint(headP)
             local feetScr, feetOn = cam:WorldToViewportPoint(feetP)
 
-            local toHead = (headP - cam.CFrame.Position)
-            if not headOn or not feetOn or cam.CFrame.LookVector:Dot(toHead.Unit) <= 0 then
+            -- Behind-camera guard
+            local toHead = (headP - camPos)
+            if not headOn or not feetOn or camLook:Dot(toHead.Unit) <= 0 then
                 hide(st); continue
             end
 
@@ -202,7 +215,7 @@ function ESP.new()
             local w = h * 0.55
             local x, y = feetScr.X - w / 2, headScr.Y
 
-            -- box
+            -- Box
             if _G.Toggles.esp_box and _G.Toggles.esp_box.Value then
                 if st.box then
                     st.box.Size = UDim2.new(w / 2 + 2, 0, h, 0)
