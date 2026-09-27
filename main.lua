@@ -1,5 +1,5 @@
 -- linoriarage main.lua (scaffold v1: menu shell, ZERO cheat logic)
--- Usage: loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/5e71e1130f833f205fb38b7941ce28996a6374d85a52a022f57cb26ed418866b32e9ef6c5/main.lua"))()
+-- Usage: loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/f555f6b/main.lua"))()
 repeat task.wait() until game:IsLoaded()
 
 local LINORIA_URL = "https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/"
@@ -98,9 +98,9 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 SaveManager:LoadAutoloadConfig()
 
 -- Modules (Real Executor compatible: Drawing→BillboardGui, __namecall→Mouse.Button1Down)
-local Utils = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/5e71e1130f833f205fb38b7941ce28996a6374d85a52a022f57cb26ed418866b32e9ef6c5/modules/utils.lua"))()
-local ESP   = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/5e71e1130f833f205fb38b7941ce28996a6374d85a52a022f57cb26ed418866b32e9ef6c5/modules/esp.lua"))()
-local Aimbot   = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/5e71e1130f833f205fb38b7941ce28996a6374d85a52a022f57cb26ed418866b32e9ef6c5/modules/aimbot.lua"))()
-local Triggerbot = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/5e71e1130f833f205fb38b7941ce28996a6374d85a52a022f57cb26ed418866b32e9ef6c5/modules/triggerbot.lua"))()
+local Utils = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/f555f6b/modules/utils.lua"))()
+local ESP   = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/f555f6b/modules/esp.lua"))()
+local Aimbot   = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/f555f6b/modules/aimbot.lua"))()
+local Triggerbot = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/f555f6b/modules/triggerbot.lua"))()
 -- Silent aim removed: __namecall hooks not supported on Real Executor
 -- Staff detector and spoofer modules pending
