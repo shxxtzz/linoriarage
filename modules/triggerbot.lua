@@ -1,5 +1,5 @@
--- linoriarage modules/triggerbot (optimized)
--- Uses mouse1click() to fire shots. Distance-limited.
+-- linoriarage modules/triggerbot.lua (Real Executor compatible)
+-- Uses mouse1click(screenX, screenY) at target position when looking at enemy.
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
@@ -11,45 +11,52 @@ local Utils = _G.LR_UTILS
 
 function Triggerbot.new()
     local self = setmetatable({}, Triggerbot)
-    self.currentTarget = nil
     self._conn = nil
-    self._cooldown = 0
     self.destroyed = false
+    self.lastShot = 0
 
     local function getSettings()
+        local t = _G.Toggles or {}
+        local o = _G.Options or {}
+        local ok1, en = pcall(function() return t.trig_enabled.Value end)
+        local ok2, reaction = pcall(function() return o.trig_reaction.Value end)
+        local ok3, delay = pcall(function() return o.trig_delay.Value end)
         return {
-            enabled = (_G.Toggles and _G.Toggles.trig_enabled and _G.Toggles.trig_enabled.Value) or false,
-            reaction = (_G.Options and _G.Options.trig_reaction and _G.Options.trig_reaction.Value) or 100,
-            delay = (_G.Options and _G.Options.trig_delay and _G.Options.trig_delay.Value) or 0,
-            maxDist = 500,
+            enabled = ok1 and en == true,
+            reaction = ok2 and reaction or 100,
+            delay = ok3 and delay or 0,
         }
     end
 
-    local function onButton1Down(input, gameProcessed)
-        if gameProcessed then return end
-        local s = getSettings()
-        if not s.enabled then return end
-        if self.destroyed then return end
-        if tick() - self._cooldown < s.delay / 1000 then return end
-
+    local function getTarget()
         local cam = workspace.CurrentCamera
-        if not cam then return end
-
+        if not cam then return nil end
         local screenCenter = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2)
-        local target, _ = Utils.acquire(s.maxDist, 50, screenCenter, "head")
-
-        if target then
-            local dist = (target.Position - cam.CFrame.Position).Magnitude
-            if dist > s.maxDist then return end
-            task.wait(s.reaction / 1000)
-            pcall(function()
-                mouse1click(0, 0)
-            end)
-            self._cooldown = tick()
-        end
+        local target, _ = Utils.acquire(500, 10, screenCenter, "head")
+        return target
     end
 
-    self._conn = UIS.InputBegan:Connect(onButton1Down)
+    local function onInputBegan(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        local s = getSettings()
+        if not s.enabled or self.destroyed then return end
+        if tick() - self.lastShot < (s.reaction / 1000) then return end
+
+        local target = getTarget()
+        if not target then return end
+
+        local cam = workspace.CurrentCamera
+        local screenPos, onScreen = cam:WorldToViewportPoint(target.Position)
+        if not onScreen then return end
+
+        pcall(function()
+            mouse1click(screenPos.X, screenPos.Y)
+        end)
+        self.lastShot = tick()
+    end
+
+    self._conn = UIS.InputBegan:Connect(onInputBegan)
     return self
 end
 
@@ -59,15 +66,8 @@ function Triggerbot:Destroy()
         self._conn = nil
     end
     self.destroyed = true
+    _G.LR_TRIGGERBOT = nil
 end
 
-local function construct()
-    task.defer(function()
-        if _G.Toggles and _G.Toggles.trig_enabled then
-            _G.LR_TRIGGERBOT = Triggerbot.new()
-        end
-    end)
-end
-
-construct()
+_G.LR_TRIGGERBOT = Triggerbot.new()
 return Triggerbot

@@ -1,7 +1,6 @@
 -- linoriarage modules/esp.lua (BillboardGui renderer for Real Executor)
 -- Replaces Drawing library with BillboardGui + Frame/TextLabel children.
--- Keeps: per-player state, RenderStepped loop, box/healthbar/name/distance/number,
--- dynamic bounds, ally skip, dead hide, skeleton via frames.
+-- Safe _G.Toggles/_G.Options access with pcall throughout.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
@@ -9,7 +8,6 @@ local LocalPlayer = Players.LocalPlayer
 local ESP = {}
 ESP.__index = ESP
 
--- RIVALS uses Hitbox* parts. Standard R15 parts may not exist.
 local SKEL = {
     { "Head", "UpperTorso" }, { "UpperTorso", "LowerTorso" },
     { "UpperTorso", "LeftUpperArm" }, { "LeftUpperArm", "LeftLowerArm" },
@@ -31,6 +29,29 @@ local SKEL_PARTS = {
     "RightUpperLeg", "RightLowerLeg", "RightFoot",
     "HumanoidRootPart",
 }
+
+local function safeGet(key)
+    local ok, val = pcall(function() return _G[key] end)
+    return ok and val or nil
+end
+
+local function safeToggle(name)
+    local t = safeGet("Toggles")
+    if not t then return false end
+    local ok, v = pcall(function() return t[name] end)
+    if not ok then return false end
+    if not v then return false end
+    ok, v = pcall(function() return v.Value end)
+    return ok and v == true
+end
+
+local function safeOption(name)
+    local o = safeGet("Options")
+    if not o then return nil end
+    local ok, v = pcall(function() return o[name] end)
+    if not ok then return nil end
+    return v
+end
 
 local function makeBillboard(parent)
     local bb = Instance.new("BillboardGui")
@@ -72,7 +93,7 @@ local function makeHealthBar(bb)
     bg.Parent = bb
 
     local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(1, 0, 1, 0)
+    bar.Size = UDim2.new(1, 0, 0, 0)
     bar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
     bar.BorderSizePixel = 0
     bar.Parent = bb
@@ -152,8 +173,7 @@ function ESP.new()
 
     local function tick()
         if self.destroyed then return end
-        local esp_enabled = (_G.Toggles and _G.Toggles.esp_enabled and _G.Toggles.esp_enabled.Value) or false
-        if not esp_enabled then
+        if not safeToggle("esp_enabled") then
             for _, st in pairs(self.states) do hide(st) end
             return
         end
@@ -166,7 +186,6 @@ function ESP.new()
             return
         end
 
-        -- Cache viewport size once per frame
         local vpW, vpH = cam.ViewportSize.X, cam.ViewportSize.Y
         local camPos = cam.CFrame.Position
         local camLook = cam.CFrame.LookVector
@@ -178,19 +197,18 @@ function ESP.new()
             local character = player.Character
             local hum = character and character:FindFirstChild("Humanoid")
             local hrp = character and character:FindFirstChild("HumanoidRootPart")
-            local ally = nil
+            local ally = false
             for _, p in ipairs(Players:GetPlayers()) do
                 if p.Character == character then
                     ally = p.Team ~= nil and p.Team ~= Enum.Team.Neutral
                     break
                 end
             end
-            if not character or not hum or hum.Health <= 0 or not hrp
-                or ally then
+            if not character or not hum or hum.Health <= 0 or not hrp or ally then
                 hide(st); continue
             end
 
-            -- Single sample: snapshot part positions ONCE per frame
+            -- Snapshot part positions ONCE per frame
             local pos = {}
             for _, pn in ipairs(SKEL_PARTS) do
                 local part = character:FindFirstChild(pn)
@@ -201,13 +219,11 @@ function ESP.new()
             local headP = head and head.Position or (pos.Head or hrp.Position)
             local feetP = hrp.Position - Vector3.new(0, 3, 0)
 
-            -- Pre-compute screen positions ONCE
+            -- Screen positions ONCE
             local headScr, headOn = cam:WorldToViewportPoint(headP)
             local feetScr, feetOn = cam:WorldToViewportPoint(feetP)
 
-            -- Behind-camera guard
-            local toHead = (headP - camPos)
-            if not headOn or not feetOn or camLook:Dot(toHead.Unit) <= 0 then
+            if not headOn or not feetOn or camLook:Dot((headP - camPos).Unit) <= 0 then
                 hide(st); continue
             end
 
@@ -216,7 +232,7 @@ function ESP.new()
             local x, y = feetScr.X - w / 2, headScr.Y
 
             -- Box
-            if _G.Toggles.esp_box and _G.Toggles.esp_box.Value then
+            if safeToggle("esp_box") then
                 if st.box then
                     st.box.Size = UDim2.new(w / 2 + 2, 0, h, 0)
                     st.box.Position = UDim2.new(0, x - 2, 0, y)
@@ -227,18 +243,31 @@ function ESP.new()
                 st.box.BackgroundTransparency = 1
             end
 
-            -- health bar
-            if _G.Toggles.esp_healthbar and _G.Toggles.esp_healthbar.Value == true then
+            -- Health bar
+            local showHealth = safeToggle("esp_healthbar")
+            local posValues = {"top", "bottom", "left", "right"}
+            local posIndex = 1
+            if showHealth then
+                local opt = safeOption("healthbar_pos")
+                if opt then
+                    local ok, idx = pcall(function() return opt.Value end)
+                    if ok and type(idx) == "number" and idx >= 1 and idx <= #posValues then
+                        posIndex = idx
+                    end
+                    local ok2, vals = pcall(function() return opt.Values end)
+                    if ok2 and type(vals) == "table" and #vals > 0 then
+                        posValues = vals
+                    end
+                end
+            end
+            if showHealth then
                 local frac = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                local hPos = posValues[posIndex] or "top"
+                local barX, barY = x - 8, y
+                if hPos == "bottom" then barY = y + h end
+                if hPos == "left" then barX = x - 12 end
+                if hPos == "right" then barX = x + w + 4 end
                 if st.barBg then
-                    local posValues = (_G.Options and _G.Options.healthbar_pos and _G.Options.healthbar_pos.Values) or { "top", "bottom", "left", "right" }
-                    local posIndex = (_G.Options and _G.Options.healthbar_pos and _G.Options.healthbar_pos.Value) or 1
-                    if type(posIndex) ~= "number" then posIndex = 1 end
-                    local hPos = posValues[posIndex] or "top"
-                    local barX, barY = x - 8, y
-                    if hPos == "bottom" then barY = y + h end
-                    if hPos == "left" then barX = x - 12 end
-                    if hPos == "right" then barX = x + w + 4 end
                     st.barBg.Position = UDim2.new(0, barX, 0, barY)
                     st.barBg.Size = UDim2.new(0, 4, 0, h)
                     st.barBg.BackgroundTransparency = 0
@@ -253,8 +282,8 @@ function ESP.new()
                 if st.bar then st.bar.BackgroundTransparency = 1 end
             end
 
-            -- name
-            if _G.Toggles.esp_name and _G.Toggles.esp_name.Value then
+            -- Name
+            if safeToggle("esp_name") then
                 if st.name then
                     st.name.Text = player.Name
                     st.name.Position = UDim2.new(0, 0, 0, y - 16)
@@ -264,8 +293,8 @@ function ESP.new()
                 st.name.TextTransparency = 1
             end
 
-            -- distance
-            if _G.Toggles.esp_distance and _G.Toggles.esp_distance.Value then
+            -- Distance
+            if safeToggle("esp_distance") then
                 local d = math.floor((hrp.Position - cam.CFrame.Position).Magnitude)
                 if st.dist then
                     st.dist.Text = d .. "st"
@@ -276,8 +305,8 @@ function ESP.new()
                 st.dist.TextTransparency = 1
             end
 
-            -- number
-            if _G.Toggles.esp_number and _G.Toggles.esp_number.Value then
+            -- Number
+            if safeToggle("esp_number") then
                 if st.num then
                     st.num.Text = tostring(st.idx)
                     st.num.Position = UDim2.new(0, x + w + 8, 0, y)
@@ -287,8 +316,8 @@ function ESP.new()
                 st.num.TextTransparency = 1
             end
 
-            -- skeleton
-            local showSkel = _G.Toggles.esp_skeleton and _G.Toggles.esp_skeleton.Value
+            -- Skeleton
+            local showSkel = safeToggle("esp_skeleton")
             for i, pair in ipairs(SKEL) do
                 local ln = st.lines[i]
                 local a = pos[pair[1]]
@@ -310,7 +339,7 @@ function ESP.new()
             end
         end
 
-        -- drop drawings for players who left
+        -- Drop players who left
         local activeSet = {}
         for _, p in ipairs(allPlayers) do activeSet[p] = true end
         for player, st in pairs(self.states) do
@@ -339,18 +368,5 @@ function ESP:Destroy()
     _G.LR_ESP = nil
 end
 
-local function construct()
-    if _G.Toggles then
-        _G.LR_ESP = ESP.new()
-    else
-        task.defer(function()
-            if _G.Toggles then
-                _G.LR_ESP = ESP.new()
-            end
-        end)
-    end
-end
-
-construct()
-
+_G.LR_ESP = ESP.new()
 return ESP
