@@ -1,16 +1,21 @@
--- linoriarage modules/esp.lua (BillboardGui renderer for Real Executor)
--- Direct _G.Toggles/_G.Options access
+-- linoriarage modules/esp.lua (ScreenGui renderer; single-sample projections)
+-- Real Executor compatible: no Drawing library, no __namecall.
+-- One ScreenGui in PlayerGui; per-player Frames/TextLabels in screen pixels.
+-- Anchors (head/feet) and skeleton project from the same per-frame snapshot,
+-- so plates and skeletons cannot disagree (no smear on sprinters).
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
-local T = _G.Toggles or {}
-local O = _G.Options or {}
+local _TG = _G.Toggles
+local T = (_TG ~= nil and _TG) or ((Toggles ~= nil and Toggles) or {})
+local _OP = _G.Options
+local O = (_OP ~= nil and _OP) or ((Options ~= nil and Options) or {})
 
 local function toggle(name, default)
     local v = T[name]
-    if v and v.Value ~= nil then return v.Value end
-    return default or false
+    if v ~= nil and v.Value ~= nil then return v.Value end
+    return default
 end
 
 local function option(name)
@@ -28,66 +33,26 @@ local SKEL = {
     { "LowerTorso", "LeftUpperLeg" }, { "LeftUpperLeg", "LeftLowerLeg" },
     { "LeftLowerLeg", "LeftFoot" }, { "LowerTorso", "RightUpperLeg" },
     { "RightUpperLeg", "RightLowerLeg" }, { "RightLowerLeg", "RightFoot" },
-    { "HitboxHead", "HitboxBody" },
-    { "HitboxBody", "HumanoidRootPart" },
 }
 
 local SKEL_PARTS = {
     "Head", "HitboxHead",
     "UpperTorso", "HitboxBody", "LowerTorso",
-    "LeftUpperArm", "LeftHand",
-    "RightUpperArm", "RightHand",
+    "LeftUpperArm", "LeftLowerArm", "LeftHand",
+    "RightUpperArm", "RightLowerArm", "RightHand",
     "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
     "RightUpperLeg", "RightLowerLeg", "RightFoot",
     "HumanoidRootPart",
 }
 
-local function makeBillboard(parent)
-    local bb = Instance.new("BillboardGui")
-    bb.Size = UDim2.new(2, 0, 1, 0)
-    bb.StudsOffset = Vector3.new(0, 2, 0)
-    bb.AlwaysOnTop = true
-    bb.MaxDistance = 500
-    bb.Parent = parent
-    return bb
-end
+local SKEL_COLOR = Color3.fromRGB(255, 0, 0)
+local SKEL_THICK = 2
 
-local function makeBox(bb)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.BackgroundTransparency = 1
-    frame.BorderSizePixel = 0
-    frame.Parent = bb
-    return frame
-end
-
-local function makeTextLabel(bb, text)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 0, 14)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text or ""
-    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-    lbl.TextScaled = true
-    lbl.Font = Enum.Font.GothamBold
-    lbl.Parent = bb
-    return lbl
-end
-
-local function makeHealthBar(bb)
-    local bg = Instance.new("Frame")
-    bg.Size = UDim2.new(0, 4, 1, 0)
-    bg.Position = UDim2.new(0, -6, 0, 0)
-    bg.BackgroundColor3 = Color3.new(0, 0, 0)
-    bg.BorderSizePixel = 0
-    bg.Parent = bb
-
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(1, 0, 0, 0)
-    bar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-    bar.BorderSizePixel = 0
-    bar.Parent = bb
-
-    return bg, bar
+local function mk(className, props, parent)
+    local o = Instance.new(className)
+    for k, v in pairs(props) do o[k] = v end
+    o.Parent = parent
+    return o
 end
 
 function ESP.new()
@@ -96,68 +61,73 @@ function ESP.new()
     self.num = 0
     self.destroyed = false
 
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "linoriarage_esp"
+    gui.ResetOnSpawn = false
+    gui.DisplayOrder = 1000
+    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    self.gui = gui
+
     local function newState(player)
-        local char = player.Character
-        local head = char and (char:FindFirstChild("HitboxHead") or char:FindFirstChild("Head"))
-        local bb = head and makeBillboard(head) or nil
-
-        local st = {
-            player = player,
-            character = nil,
-            idx = 0,
-            bb = bb,
-            box = bb and makeBox(bb) or nil,
-            barBg = bb and makeHealthBar(bb) or nil,
-            name = bb and makeTextLabel(bb, player.Name) or nil,
-            dist = bb and makeTextLabel(bb, "") or nil,
-            num = bb and makeTextLabel(bb, "") or nil,
-            bar = nil,
-            lines = {},
-        }
-
-        if st.barBg then
-            st.bar = st.barBg:FindFirstChildOfClass("Frame")
-        end
-
-        for i = 1, #SKEL do
-            local ln = makeBox(bb)
-            if ln then
-                ln.Visible = false
-                table.insert(st.lines, ln)
-            end
-        end
-
         self.num = self.num + 1
-        st.idx = self.num
+        local st = { player = player, idx = self.num, lines = {} }
+        st.box = mk("Frame", {
+            BackgroundTransparency = 1, BorderSizePixel = 1,
+            BorderColor3 = Color3.fromRGB(255, 255, 255), Visible = false,
+        }, gui)
+        st.barBg = mk("Frame", {
+            BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0,
+            Visible = false,
+        }, gui)
+        st.bar = mk("Frame", {
+            BackgroundColor3 = Color3.fromRGB(0, 255, 0), BorderSizePixel = 0,
+            Visible = false,
+        }, gui)
+        local function lbl(sz)
+            return mk("TextLabel", {
+                BackgroundTransparency = 1, Font = Enum.Font.GothamBold,
+                TextSize = sz, TextColor3 = Color3.fromRGB(255, 255, 255),
+                TextStrokeTransparency = 0, Visible = false,
+            }, gui)
+        end
+        st.name = lbl(13)
+        st.dist = lbl(12)
+        st.num = lbl(13)
+        for _ = 1, #SKEL do
+            table.insert(st.lines, mk("Frame", {
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                BackgroundColor3 = SKEL_COLOR, BorderSizePixel = 0,
+                Visible = false,
+            }, gui))
+        end
         return st
     end
 
     local function hide(st)
-        if st.box then st.box.BackgroundTransparency = 1 end
-        if st.barBg then
-            st.barBg.BackgroundTransparency = 1
-            if st.bar then st.bar.BackgroundTransparency = 1 end
+        for _, o in ipairs({ st.box, st.barBg, st.bar, st.name, st.dist, st.num }) do
+            if o then o.Visible = false end
         end
-        if st.name then st.name.TextTransparency = 1 end
-        if st.dist then st.dist.TextTransparency = 1 end
-        if st.num then st.num.TextTransparency = 1 end
-        for _, ln in ipairs(st.lines) do
-            if ln then ln.BackgroundTransparency = 1 end
-        end
+        for _, ln in ipairs(st.lines) do ln.Visible = false end
     end
 
-    local function show(st)
-        if st.box then st.box.BackgroundTransparency = 0 end
-        if st.barBg then
-            st.barBg.BackgroundTransparency = 0
-            if st.bar then st.bar.BackgroundTransparency = 0 end
+    local function setLine(ln, ax, ay, bx, by)
+        local dx, dy = bx - ax, by - ay
+        local len = math.sqrt(dx * dx + dy * dy)
+        if len < 1 then ln.Visible = false; return end
+        ln.Position = UDim2.fromOffset((ax + bx) / 2, (ay + by) / 2)
+        ln.Size = UDim2.fromOffset(len, SKEL_THICK)
+        ln.Rotation = math.deg(math.atan2(dy, dx))
+        ln.Visible = true
+    end
+
+    local function healthPos(hPos)
+        local opt = option("healthbar_pos")
+        if opt and type(opt.Value) == "number" then
+            local vals = (type(opt.Values) == "table" and #opt.Values > 0)
+                and opt.Values or { "top", "bottom", "left", "right" }
+            return vals[opt.Value] or hPos
         end
-        if st.name then st.name.TextTransparency = 0 end
-        if st.dist then st.dist.TextTransparency = 0 end
-        if st.num then st.num.TextTransparency = 0 end
-        for _, ln in ipairs(st.lines) do
-            if ln then ln.BackgroundTransparency = 1 end
-        end
+        return hPos
     end
 
     local function tick()
@@ -168,36 +138,25 @@ function ESP.new()
         end
         local cam = workspace.CurrentCamera
         if not cam then return end
+        local camPos, camLook = cam.CFrame.Position, cam.CFrame.LookVector
+        local vp = cam.ViewportSize
 
-        local allPlayers = Players:GetPlayers()
-        if #allPlayers <= 1 then
-            for _, st in pairs(self.states) do hide(st) end
-            return
-        end
-
-        local vpW, vpH = cam.ViewportSize.X, cam.ViewportSize.Y
-        local camPos = cam.CFrame.Position
-        local camLook = cam.CFrame.LookVector
-
-        for _, player in ipairs(allPlayers) do
+        for _, player in ipairs(Players:GetPlayers()) do
             if player == LocalPlayer then continue end
             local st = self.states[player]
             if not st then st = newState(player); self.states[player] = st end
             local character = player.Character
             local hum = character and character:FindFirstChild("Humanoid")
             local hrp = character and character:FindFirstChild("HumanoidRootPart")
-            local ally = false
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p.Character == character then
-                    ally = p.Team ~= nil and p.Team ~= Enum.Team.Neutral
-                    break
-                end
-            end
+            -- ally = confirmed same team as local player (fail-open: no team
+            -- info on either side means show, so FFA/un-teamed modes work).
+            local ally = player.Team ~= nil and LocalPlayer.Team ~= nil
+                and player.Team == LocalPlayer.Team
             if not character or not hum or hum.Health <= 0 or not hrp or ally then
                 hide(st); continue
             end
 
-            -- Snapshot part positions ONCE per frame
+            -- single sample: snapshot part positions ONCE per frame
             local pos = {}
             for _, pn in ipairs(SKEL_PARTS) do
                 local part = character:FindFirstChild(pn)
@@ -208,11 +167,12 @@ function ESP.new()
             local headP = head and head.Position or (pos.Head or hrp.Position)
             local feetP = hrp.Position - Vector3.new(0, 3, 0)
 
-            -- Screen positions ONCE
             local headScr, headOn = cam:WorldToViewportPoint(headP)
             local feetScr, feetOn = cam:WorldToViewportPoint(feetP)
-
-            if not headOn or not feetOn or camLook:Dot((headP - camPos).Unit) <= 0 then
+            local dir = headP - camPos
+            local dist = dir.Magnitude
+            if not headOn or not feetOn or dist < 0.001
+                or camLook:Dot(dir / dist) <= 0 then
                 hide(st); continue
             end
 
@@ -220,137 +180,125 @@ function ESP.new()
             local w = h * 0.55
             local x, y = feetScr.X - w / 2, headScr.Y
 
-            -- Box
+            -- whole plate far off-screen: skip
+            if x > vp.X + 100 or x + w < -100 or y > vp.Y + 100 or y + h < -100 then
+                hide(st); continue
+            end
+
+            -- box
             if toggle("esp_box", false) then
-                if st.box then
-                    st.box.Size = UDim2.new(w / 2 + 2, 0, h, 0)
-                    st.box.Position = UDim2.new(0, x - 2, 0, y)
-                    st.box.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                    st.box.BackgroundTransparency = 0
-                end
-            elseif st.box then
-                st.box.BackgroundTransparency = 1
-            end
-
-            -- Health bar
-            local showHealth = toggle("esp_healthbar", false)
-            local posValues = {"top", "bottom", "left", "right"}
-            local posIndex = 1
-            if showHealth then
-                local opt = option("healthbar_pos")
-                if opt then
-                    local idx = opt.Value
-                    if type(idx) == "number" and idx >= 1 and idx <= #posValues then
-                        posIndex = idx
-                    end
-                    local vals = opt.Values
-                    if type(vals) == "table" and #vals > 0 then
-                        posValues = vals
-                    end
-                end
-            end
-            if showHealth then
-                local frac = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                local hPos = posValues[posIndex] or "top"
-                local barX, barY = x - 8, y
-                if hPos == "bottom" then barY = y + h end
-                if hPos == "left" then barX = x - 12 end
-                if hPos == "right" then barX = x + w + 4 end
-                if st.barBg then
-                    st.barBg.Position = UDim2.new(0, barX, 0, barY)
-                    st.barBg.Size = UDim2.new(0, 4, 0, h)
-                    st.barBg.BackgroundTransparency = 0
-                end
-                if st.bar then
-                    st.bar.Size = UDim2.new(1, 0, 0, h * frac)
-                    st.bar.BackgroundColor3 = Color3.fromRGB(255 - math.floor(255 * frac), math.floor(255 * frac), 0)
-                    st.bar.BackgroundTransparency = 0
-                end
+                st.box.Position = UDim2.fromOffset(x, y)
+                st.box.Size = UDim2.fromOffset(w, h)
+                st.box.Visible = true
             else
-                if st.barBg then st.barBg.BackgroundTransparency = 1 end
-                if st.bar then st.bar.BackgroundTransparency = 1 end
+                st.box.Visible = false
             end
 
-            -- Name
+            -- health bar (bottom-up fill)
+            if toggle("esp_healthbar", false) then
+                local frac = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                local hPos = healthPos("left")
+                local bx, by, bw, bh = x - 8, y, 4, h
+                local fx, fy, fw, fh = bx, by + h * (1 - frac), 4, h * frac
+                if hPos == "right" then
+                    bx, fx = x + w + 4, x + w + 4
+                elseif hPos == "top" then
+                    bx, by, bw, bh = x, y - 8, w, 4
+                    fx, fy, fw, fh = x, y - 8, w * frac, 4
+                elseif hPos == "bottom" then
+                    bx, by, bw, bh = x, y + h + 4, w, 4
+                    fx, fy, fw, fh = x, y + h + 4, w * frac, 4
+                end
+                st.barBg.Position = UDim2.fromOffset(bx, by)
+                st.barBg.Size = UDim2.fromOffset(bw, bh)
+                st.barBg.Visible = true
+                st.bar.Position = UDim2.fromOffset(fx, fy)
+                st.bar.Size = UDim2.fromOffset(fw, fh)
+                st.bar.BackgroundColor3 = Color3.fromRGB(
+                    255 - math.floor(255 * frac), math.floor(255 * frac), 0)
+                st.bar.Visible = true
+            else
+                st.barBg.Visible = false
+                st.bar.Visible = false
+            end
+
+            -- name
             if toggle("esp_name", false) then
-                if st.name then
-                    st.name.Text = player.Name
-                    st.name.Position = UDim2.new(0, 0, 0, y - 16)
-                    st.name.TextTransparency = 0
-                end
-            elseif st.name then
-                st.name.TextTransparency = 1
+                st.name.Text = player.Name
+                st.name.Size = UDim2.fromOffset(200, 14)
+                st.name.Position = UDim2.fromOffset(feetScr.X - 100, y - 16)
+                st.name.Visible = true
+            else
+                st.name.Visible = false
             end
 
-            -- Distance
+            -- distance (studs, same unit as external)
             if toggle("esp_distance", false) then
-                local d = math.floor((hrp.Position - cam.CFrame.Position).Magnitude)
-                if st.dist then
-                    st.dist.Text = d .. "st"
-                    st.dist.Position = UDim2.new(0, 0, 0, y + h + 4)
-                    st.dist.TextTransparency = 0
-                end
-            elseif st.dist then
-                st.dist.TextTransparency = 1
+                st.dist.Text = math.floor(dist) .. "st"
+                st.dist.Size = UDim2.fromOffset(200, 12)
+                st.dist.Position = UDim2.fromOffset(feetScr.X - 100, y + h + 2)
+                st.dist.Visible = true
+            else
+                st.dist.Visible = false
             end
 
-            -- Number
+            -- number
             if toggle("esp_number", false) then
-                if st.num then
-                    st.num.Text = tostring(st.idx)
-                    st.num.Position = UDim2.new(0, x + w + 8, 0, y)
-                    st.num.TextTransparency = 0
-                end
-            elseif st.num then
-                st.num.TextTransparency = 1
+                st.num.Text = tostring(st.idx)
+                st.num.Size = UDim2.fromOffset(40, 14)
+                st.num.Position = UDim2.fromOffset(x + w + 4, y)
+                st.num.Visible = true
+            else
+                st.num.Visible = false
             end
 
-            -- Skeleton
+            -- skeleton from the SAME sample (zero skew by construction)
             local showSkel = toggle("esp_skeleton", false)
             for i, pair in ipairs(SKEL) do
                 local ln = st.lines[i]
-                local a = pos[pair[1]]
-                local b = pos[pair[2]]
-                if showSkel and a and b and ln then
-                    local aScr, _ = cam:WorldToViewportPoint(a)
-                    local bScr, _ = cam:WorldToViewportPoint(b)
-                    if aScr and bScr then
-                        ln.Position = UDim2.new(0, aScr.X, 0, aScr.Y)
-                        ln.Size = UDim2.new(math.max(1, bScr.X - aScr.X), 0, 1, 0)
-                        ln.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-                        ln.BackgroundTransparency = 0
+                local a, b = pos[pair[1]], pos[pair[2]]
+                if showSkel and a and b then
+                    local aScr, oa = cam:WorldToViewportPoint(a)
+                    local bScr, ob = cam:WorldToViewportPoint(b)
+                    if oa and ob then
+                        setLine(ln, aScr.X, aScr.Y, bScr.X, bScr.Y)
                     else
-                        ln.BackgroundTransparency = 1
+                        ln.Visible = false
                     end
-                elseif ln then
-                    ln.BackgroundTransparency = 1
+                else
+                    ln.Visible = false
                 end
             end
         end
 
-        -- Drop players who left
+        -- drop players who left (destroy their objects)
         local activeSet = {}
-        for _, p in ipairs(allPlayers) do activeSet[p] = true end
+        for _, p in ipairs(Players:GetPlayers()) do activeSet[p] = true end
         for player, st in pairs(self.states) do
             if not activeSet[player] then
-                hide(st)
-                if st.bb then pcall(function() st.bb:Destroy() end) end
+                for _, ln in ipairs(st.lines) do
+                    pcall(function() ln:Destroy() end)
+                end
+                for _, o in ipairs({ st.box, st.barBg, st.bar, st.name, st.dist, st.num }) do
+                    pcall(function() o:Destroy() end)
+                end
                 self.states[player] = nil
             end
         end
     end
 
-    self._renderConn = RunService.RenderStepped:Connect(tick)
+    self._conn = RunService.RenderStepped:Connect(tick)
     return self
 end
 
 function ESP:Destroy()
-    if self._renderConn then
-        self._renderConn:Disconnect()
-        self._renderConn = nil
+    if self._conn then
+        self._conn:Disconnect()
+        self._conn = nil
     end
-    for _, st in pairs(self.states) do
-        if st.bb then pcall(function() st.bb:Destroy() end) end
+    if self.gui then
+        pcall(function() self.gui:Destroy() end)
+        self.gui = nil
     end
     self.states = {}
     self.destroyed = true
