@@ -80,7 +80,7 @@ _G.Toggles.rage_norecoil  = RageG:AddToggle("rage_norecoil",  { Text = "No Recoi
 
 -- Settings / menu + configs
 local MenuG = Tabs.Settings:AddLeftGroupbox("Menu")
-_G.Options.MenuKeybind = MenuG:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { Default = "RightShift", NoUI = true, Text = "Menu keybind" })
+_G.Options.MenuKeybind = MenuG:AddLabel("Menu bind")
 MenuG:AddButton("Unload", function()
     if _G.LR_ESP then pcall(function() _G.LR_ESP:Destroy() end) end
     if _G.LR_AIMBOT then pcall(function() _G.LR_AIMBOT:Destroy() end) end
