@@ -186,7 +186,7 @@ function ESP.new()
                 end
             end
             if not character or not hum or hum.Health <= 0 or not hrp
-                or (ally and ally.Value) then
+                or ally then
                 hide(st); continue
             end
 

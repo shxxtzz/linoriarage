@@ -47,7 +47,10 @@ function Aimbot.new()
         if self.destroyed then return end
 
         -- Check if input matches aim keybind
-        local keybind = (_G.Options and _G.Options.AimKeybind and _G.Options.AimKeybind.Value) or "RightShift"
+        local keybind = "RightShift"
+        if _G.Options and _G.Options.AimKeybind then
+            keybind = _G.Options.AimKeybind.Value or "RightShift"
+        end
         local keyName = input.KeyCode and input.KeyCode.Name or ""
         if keyName ~= keybind then return end
 
