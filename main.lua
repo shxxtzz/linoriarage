@@ -37,6 +37,7 @@ _G.Options.aim_smoothing  = AimG:AddSlider("aim_smoothing",  { Text = "Smoothing
 _G.Options.aim_fov        = AimG:AddSlider("aim_fov",        { Text = "FOV", Default = 90, Min = 10, Max = 300, Rounding = 0 })
 _G.Options.aim_target     = AimG:AddDropdown("aim_target",   { Values = { "head", "body", "root", "lower", "r.arm", "l.arm", "r.leg", "l.leg" }, Default = 1, Multi = false, Text = "Target" })
 _G.Options.aim_grace      = AimG:AddSlider("aim_grace",      { Text = "Sticky grace (cm)", Default = 1, Min = 0, Max = 10, Rounding = 1 })
+_G.Options.aim_keybind     = AimG:AddDropdown("aim_keybind",   { Values = { "LeftAlt", "LeftCtrl", "Q", "F", "Space" }, Default = 1, Multi = false, Text = "Aim Keybind" })
 
 -- Main / Silent Aim group
 local SilG = Tabs.Main:AddRightGroupbox("Silent Aim")

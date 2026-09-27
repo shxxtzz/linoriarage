@@ -21,6 +21,9 @@ function Aimbot.new()
     local function getSettings()
         local t = _G.Toggles or {}
         local o = _G.Options or {}
+        local keybindIdx = o.aim_keybind and o.aim_keybind.Value or 1
+        local keybindVals = o.aim_keybind and o.aim_keybind.Values or { "LeftAlt" }
+        local keybind = type(keybindIdx) == "number" and keybindVals[keybindIdx] or "LeftAlt"
         return {
             enabled = t.aim_enabled and t.aim_enabled.Value == true,
             fov = o.aim_fov and o.aim_fov.Value or 90,
@@ -28,6 +31,7 @@ function Aimbot.new()
             maxDist = 500,
             smoothing = o.aim_smoothing and o.aim_smoothing.Value or 35,
             grace = o.aim_grace and o.aim_grace.Value or 1,
+            keybind = keybind,
         }
     end
 
@@ -44,9 +48,8 @@ function Aimbot.new()
         local s = getSettings()
         if not s.enabled or self.destroyed then return end
 
-        -- Hardcoded RightShift keybind (AddKeyPicker not available on groupboxes)
         local keyName = input.KeyCode and input.KeyCode.Name or ""
-        if keyName ~= "RightShift" then return end
+        if keyName ~= s.keybind then return end
 
         -- Cooldown
         if tick() - self.lastShot < (s.smoothing / 1000) then return end
