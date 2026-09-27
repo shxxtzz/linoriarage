@@ -231,7 +231,12 @@ function ESP.new()
             if _G.Toggles.esp_healthbar and _G.Toggles.esp_healthbar.Value then
                 local frac = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
                 if st.barBg then
-                    st.barBg.Position = UDim2.new(0, x - 8, 0, y)
+                    local hPos = (_G.Options and _G.Options.healthbar_pos and _G.Options.healthbar_pos.Value) or "top"
+                    local barX, barY = x - 8, y
+                    if hPos == "bottom" then barY = y + h end
+                    if hPos == "left" then barX = x - 12 end
+                    if hPos == "right" then barX = x + w + 4 end
+                    st.barBg.Position = UDim2.new(0, barX, 0, barY)
                     st.barBg.Size = UDim2.new(0, 4, 0, h)
                     st.barBg.BackgroundTransparency = 0
                 end
