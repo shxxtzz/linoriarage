@@ -228,10 +228,13 @@ function ESP.new()
             end
 
             -- health bar
-            if _G.Toggles.esp_healthbar and _G.Toggles.esp_healthbar.Value then
+            if _G.Toggles.esp_healthbar and _G.Toggles.esp_healthbar.Value == true then
                 local frac = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
                 if st.barBg then
-                    local hPos = (_G.Options and _G.Options.healthbar_pos and _G.Options.healthbar_pos.Value) or "top"
+                    local posValues = (_G.Options and _G.Options.healthbar_pos and _G.Options.healthbar_pos.Values) or { "top", "bottom", "left", "right" }
+                    local posIndex = (_G.Options and _G.Options.healthbar_pos and _G.Options.healthbar_pos.Value) or 1
+                    if type(posIndex) ~= "number" then posIndex = 1 end
+                    local hPos = posValues[posIndex] or "top"
                     local barX, barY = x - 8, y
                     if hPos == "bottom" then barY = y + h end
                     if hPos == "left" then barX = x - 12 end
