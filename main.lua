@@ -37,6 +37,7 @@ _G.Options.aim_smoothing  = AimG:AddSlider("aim_smoothing",  { Text = "Smoothing
 _G.Options.aim_fov        = AimG:AddSlider("aim_fov",        { Text = "FOV", Default = 90, Min = 10, Max = 300, Rounding = 0 })
 _G.Options.aim_target     = AimG:AddDropdown("aim_target",   { Values = { "head", "body", "root", "lower", "r.arm", "l.arm", "r.leg", "l.leg" }, Default = 1, Multi = false, Text = "Target" })
 _G.Options.aim_grace      = AimG:AddSlider("aim_grace",      { Text = "Sticky grace (cm)", Default = 1, Min = 0, Max = 10, Rounding = 1 })
+_G.Options.AimKeybind = AimG:AddKeyPicker("AimKeybind", { Default = "RightShift", NoUI = false, Text = "Aim Keybind" })
 
 -- Main / Silent Aim group
 local SilG = Tabs.Main:AddRightGroupbox("Silent Aim")
@@ -80,7 +81,13 @@ _G.Toggles.rage_norecoil  = RageG:AddToggle("rage_norecoil",  { Text = "No Recoi
 -- Settings / menu + configs
 local MenuG = Tabs.Settings:AddLeftGroupbox("Menu")
 _G.Options.MenuKeybind = MenuG:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { Default = "RightShift", NoUI = true, Text = "Menu keybind" })
-MenuG:AddButton("Unload", function() if _G.LR_ESP then pcall(function() _G.LR_ESP:Destroy() end) end Library:Unload() end)
+MenuG:AddButton("Unload", function()
+    if _G.LR_ESP then pcall(function() _G.LR_ESP:Destroy() end) end
+    if _G.LR_AIMBOT then pcall(function() _G.LR_AIMBOT:Destroy() end) end
+    if _G.LR_TRIGGERBOT then pcall(function() _G.LR_TRIGGERBOT:Destroy() end) end
+    Library:Unload()
+end)
+
 
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
