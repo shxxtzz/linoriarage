@@ -21,18 +21,13 @@ function Aimbot.new()
     local function getSettings()
         local t = _G.Toggles or {}
         local o = _G.Options or {}
-        local ok1, en = pcall(function() return t.aim_enabled.Value end)
-        local ok2, fov = pcall(function() return o.aim_fov.Value end)
-        local ok3, tgt = pcall(function() return o.aim_target.Value end)
-        local ok4, smooth = pcall(function() return o.aim_smoothing.Value end)
-        local ok5, grace = pcall(function() return o.aim_grace.Value end)
         return {
-            enabled = ok1 and en == true,
-            fov = ok2 and fov or 90,
-            targetMode = ok3 and tgt or "head",
+            enabled = t.aim_enabled and t.aim_enabled.Value == true,
+            fov = o.aim_fov and o.aim_fov.Value or 90,
+            targetMode = o.aim_target and o.aim_target.Value or "head",
             maxDist = 500,
-            smoothing = ok4 and smooth or 35,
-            grace = ok5 and grace or 1,
+            smoothing = o.aim_smoothing and o.aim_smoothing.Value or 35,
+            grace = o.aim_grace and o.aim_grace.Value or 1,
         }
     end
 
@@ -68,9 +63,7 @@ function Aimbot.new()
         local screenPos, onScreen = cam:WorldToViewportPoint(target.Position)
         if not onScreen then return end
 
-        pcall(function()
-            mouse1click(screenPos.X, screenPos.Y)
-        end)
+        mouse1click(screenPos.X, screenPos.Y)
         self.lastShot = tick()
         self.currentTarget = target
     end

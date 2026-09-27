@@ -1,9 +1,21 @@
 -- linoriarage modules/esp.lua (BillboardGui renderer for Real Executor)
--- Replaces Drawing library with BillboardGui + Frame/TextLabel children.
--- Safe _G.Toggles/_G.Options access with pcall throughout.
+-- Direct _G.Toggles/_G.Options access
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+
+local T = _G.Toggles or {}
+local O = _G.Options or {}
+
+local function toggle(name, default)
+    local v = T[name]
+    if v and v.Value ~= nil then return v.Value end
+    return default or false
+end
+
+local function option(name)
+    return O[name]
+end
 
 local ESP = {}
 ESP.__index = ESP
@@ -29,29 +41,6 @@ local SKEL_PARTS = {
     "RightUpperLeg", "RightLowerLeg", "RightFoot",
     "HumanoidRootPart",
 }
-
-local function safeGet(key)
-    local ok, val = pcall(function() return _G[key] end)
-    return ok and val or nil
-end
-
-local function safeToggle(name)
-    local t = safeGet("Toggles")
-    if not t then return false end
-    local ok, v = pcall(function() return t[name] end)
-    if not ok then return false end
-    if not v then return false end
-    ok, v = pcall(function() return v.Value end)
-    return ok and v == true
-end
-
-local function safeOption(name)
-    local o = safeGet("Options")
-    if not o then return nil end
-    local ok, v = pcall(function() return o[name] end)
-    if not ok then return nil end
-    return v
-end
 
 local function makeBillboard(parent)
     local bb = Instance.new("BillboardGui")
@@ -173,7 +162,7 @@ function ESP.new()
 
     local function tick()
         if self.destroyed then return end
-        if not safeToggle("esp_enabled") then
+        if not toggle("esp_enabled", false) then
             for _, st in pairs(self.states) do hide(st) end
             return
         end
@@ -232,7 +221,7 @@ function ESP.new()
             local x, y = feetScr.X - w / 2, headScr.Y
 
             -- Box
-            if safeToggle("esp_box") then
+            if toggle("esp_box", false) then
                 if st.box then
                     st.box.Size = UDim2.new(w / 2 + 2, 0, h, 0)
                     st.box.Position = UDim2.new(0, x - 2, 0, y)
@@ -244,18 +233,18 @@ function ESP.new()
             end
 
             -- Health bar
-            local showHealth = safeToggle("esp_healthbar")
+            local showHealth = toggle("esp_healthbar", false)
             local posValues = {"top", "bottom", "left", "right"}
             local posIndex = 1
             if showHealth then
-                local opt = safeOption("healthbar_pos")
+                local opt = option("healthbar_pos")
                 if opt then
-                    local ok, idx = pcall(function() return opt.Value end)
-                    if ok and type(idx) == "number" and idx >= 1 and idx <= #posValues then
+                    local idx = opt.Value
+                    if type(idx) == "number" and idx >= 1 and idx <= #posValues then
                         posIndex = idx
                     end
-                    local ok2, vals = pcall(function() return opt.Values end)
-                    if ok2 and type(vals) == "table" and #vals > 0 then
+                    local vals = opt.Values
+                    if type(vals) == "table" and #vals > 0 then
                         posValues = vals
                     end
                 end
@@ -283,7 +272,7 @@ function ESP.new()
             end
 
             -- Name
-            if safeToggle("esp_name") then
+            if toggle("esp_name", false) then
                 if st.name then
                     st.name.Text = player.Name
                     st.name.Position = UDim2.new(0, 0, 0, y - 16)
@@ -294,7 +283,7 @@ function ESP.new()
             end
 
             -- Distance
-            if safeToggle("esp_distance") then
+            if toggle("esp_distance", false) then
                 local d = math.floor((hrp.Position - cam.CFrame.Position).Magnitude)
                 if st.dist then
                     st.dist.Text = d .. "st"
@@ -306,7 +295,7 @@ function ESP.new()
             end
 
             -- Number
-            if safeToggle("esp_number") then
+            if toggle("esp_number", false) then
                 if st.num then
                     st.num.Text = tostring(st.idx)
                     st.num.Position = UDim2.new(0, x + w + 8, 0, y)
@@ -317,7 +306,7 @@ function ESP.new()
             end
 
             -- Skeleton
-            local showSkel = safeToggle("esp_skeleton")
+            local showSkel = toggle("esp_skeleton", false)
             for i, pair in ipairs(SKEL) do
                 local ln = st.lines[i]
                 local a = pos[pair[1]]

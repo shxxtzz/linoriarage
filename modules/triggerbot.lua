@@ -18,13 +18,10 @@ function Triggerbot.new()
     local function getSettings()
         local t = _G.Toggles or {}
         local o = _G.Options or {}
-        local ok1, en = pcall(function() return t.trig_enabled.Value end)
-        local ok2, reaction = pcall(function() return o.trig_reaction.Value end)
-        local ok3, delay = pcall(function() return o.trig_delay.Value end)
         return {
-            enabled = ok1 and en == true,
-            reaction = ok2 and reaction or 100,
-            delay = ok3 and delay or 0,
+            enabled = t.trig_enabled and t.trig_enabled.Value == true,
+            reaction = o.trig_reaction and o.trig_reaction.Value or 100,
+            delay = o.trig_delay and o.trig_delay.Value or 0,
         }
     end
 
@@ -50,9 +47,7 @@ function Triggerbot.new()
         local screenPos, onScreen = cam:WorldToViewportPoint(target.Position)
         if not onScreen then return end
 
-        pcall(function()
-            mouse1click(screenPos.X, screenPos.Y)
-        end)
+        mouse1click(screenPos.X, screenPos.Y)
         self.lastShot = tick()
     end
 
