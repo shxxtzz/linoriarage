@@ -1,5 +1,5 @@
 -- linoriarage main.lua (scaffold v1: menu shell, ZERO cheat logic)
--- Usage: loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/main/main.lua"))()
+-- Usage: loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/2d3a39d5a52a022f57cb26ed418866b32e9ef6c5/main.lua"))()
 repeat task.wait() until game:IsLoaded()
 
 local LINORIA_URL = "https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/"
@@ -98,9 +98,9 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 SaveManager:LoadAutoloadConfig()
 
 -- Modules (Real Executor compatible: Drawing→BillboardGui, __namecall→Mouse.Button1Down)
-local Utils = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/main/modules/utils.lua"))()
-local ESP   = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/main/modules/esp.lua"))()
-local Aimbot   = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/main/modules/aimbot.lua"))()
-local Triggerbot = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/main/modules/triggerbot.lua"))()
+local Utils = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/2d3a39d5a52a022f57cb26ed418866b32e9ef6c5/modules/utils.lua"))()
+local ESP   = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/2d3a39d5a52a022f57cb26ed418866b32e9ef6c5/modules/esp.lua"))()
+local Aimbot   = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/2d3a39d5a52a022f57cb26ed418866b32e9ef6c5/modules/aimbot.lua"))()
+local Triggerbot = loadstring(game:HttpGet("https://raw.githubusercontent.com/shxxtzz/linoriarage/2d3a39d5a52a022f57cb26ed418866b32e9ef6c5/modules/triggerbot.lua"))()
 -- Silent aim removed: __namecall hooks not supported on Real Executor
 -- Staff detector and spoofer modules pending
